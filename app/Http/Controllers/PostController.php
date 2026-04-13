@@ -5,9 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Post;
 use App\Models\Category;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class PostController extends Controller
 {
+    use AuthorizesRequests;
     /**
      * Display a listing of the resource.
      */
@@ -16,7 +19,6 @@ class PostController extends Controller
         $posts = Post::orderBy('created_at', 'DESC')->simplePaginate(5);
 
         return view("dashboard", [
-            # associative array
             "posts" => $posts,
         ]);
     }
@@ -26,7 +28,10 @@ class PostController extends Controller
      */
     public function create()
     {
-        //
+        $categories = Category::all();
+        return view('posts.create', [
+            'categories' => $categories,
+        ]);
     }
 
     /**
@@ -34,7 +39,23 @@ class PostController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'content' => 'required|string',
+            'category_id' => 'required|exists:categories,id',
+            'image' => 'nullable|string',
+        ]);
+
+        Post::create([
+            'title' => $request->title,
+            'slug' => Str::slug($request->title),
+            'content' => $request->content,
+            'category_id' => $request->category_id,
+            'image' => $request->image,
+            'user_id' => auth()->id(),
+        ]);
+
+        return redirect()->route('dashboard')->with('success', 'Post created successfully!');
     }
 
     /**
@@ -42,7 +63,9 @@ class PostController extends Controller
      */
     public function show(Post $post)
     {
-        //
+        return view('posts.show', [
+            'post' => $post,
+        ]);
     }
 
     /**
@@ -50,7 +73,12 @@ class PostController extends Controller
      */
     public function edit(Post $post)
     {
-        //
+        $this->authorize('update', $post);
+        $categories = Category::all();
+        return view('posts.edit', [
+            'post' => $post,
+            'categories' => $categories,
+        ]);
     }
 
     /**
@@ -58,7 +86,24 @@ class PostController extends Controller
      */
     public function update(Request $request, Post $post)
     {
-        //
+        $this->authorize('update', $post);
+        
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'content' => 'required|string',
+            'category_id' => 'required|exists:categories,id',
+            'image' => 'nullable|string',
+        ]);
+
+        $post->update([
+            'title' => $request->title,
+            'slug' => Str::slug($request->title),
+            'content' => $request->content,
+            'category_id' => $request->category_id,
+            'image' => $request->image,
+        ]);
+
+        return redirect()->route('posts.show', $post)->with('success', 'Post updated successfully!');
     }
 
     /**
@@ -66,6 +111,8 @@ class PostController extends Controller
      */
     public function destroy(Post $post)
     {
-        //
+        $this->authorize('delete', $post);
+        $post->delete();
+        return redirect()->route('dashboard')->with('success', 'Post deleted successfully!');
     }
 }
